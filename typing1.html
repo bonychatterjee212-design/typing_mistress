@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Typing Practice Tool - Pro</title>
+    <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <script>
+        tailwind.config = { darkMode: 'class' }
+    </script>
+    <style>
+        .loader {
+            width: 85px; height: 50px;
+            --r: #ef4444; --y: #eab308; --g: #22c55e;
+            --g1-1: conic-gradient(from  90deg at left   3px top   3px,#0000 90deg,var(--r) 0);
+            --g1-2: conic-gradient(from  90deg at left   3px top   3px,#0000 90deg,var(--y) 0);
+            --g1-3: conic-gradient(from  90deg at left   3px top   3px,#0000 90deg,var(--g) 0);
+            --g2-1: conic-gradient(from -90deg at bottom 3px right 3px,#0000 90deg,var(--r) 0);
+            --g2-2: conic-gradient(from -90deg at bottom 3px right 3px,#0000 90deg,var(--y) 0);
+            --g2-3: conic-gradient(from -90deg at bottom 3px right 3px,#0000 90deg,var(--g) 0);
+            background: var(--g1-1), var(--g1-2), var(--g1-3), var(--g2-1), var(--g2-2), var(--g2-3);
+            background-position: left, center, right;
+            background-repeat: no-repeat;
+            animation: l10 1s infinite alternate;
+        }
+        @keyframes l10 {
+            0%, 2%   { background-size: 25px 50%, 25px 50%, 25px 50%; }
+            20%      { background-size: 25px 25%, 25px 50%, 25px 50%; }
+            40%      { background-size: 25px 100%, 25px 25%, 25px 50%; }
+            60%      { background-size: 25px 50%, 25px 100%, 25px 25%; }
+            80%      { background-size: 25px 50%, 25px 50%, 25px 100%; }
+            98%, 100%{ background-size: 25px 50%, 25px 50%, 25px 50%; }
+        }
+        input[type="file"]::file-selector-button {
+            background-color: #FF002B; color: white; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; cursor: pointer;
+        }
+        .cursive-title { font-family: 'Caveat', cursive; font-style: italic; font-size: 2.5rem; }
+        .error-highlight { background-color: #fca5a5; color: #7f1d1d; padding: 0 2px; border-radius: 3px; text-decoration: underline wavy #ef4444; }
+        .missing-highlight { background-color: #fef08a; color: #713f12; padding: 0 3px; border-radius: 3px; border: 1px dashed #ca8a04; }
+        .correct-highlight { color: #166534; }
+    </style>
+</head>
+<body id="bodyRoot" style="background-color: #FFE6EA;" class="text-black dark:text-white font-sans min-h-screen p-6 transition-colors duration-300">
+
+    <div class="max-w-4xl mx-auto p-8 rounded-xl shadow-xl text-black dark:text-white transition-colors duration-300" style="background-color: #FF8A9D;" id="mainContainer">
+
+        <div class="flex justify-between items-center mb-6">
+            <div class="border-2 border-dashed border-black/40 rounded-xl p-2 flex items-center justify-center overflow-hidden shadow-sm" style="width: 250px; height: 75px; background-color: #FFC0CB;">
+                 <img src="logo2.png" alt="Company Logo" class="h-16 w-auto object-contain rounded-3xl" onerror="this.style.display='none'"/>
+            </div>
+            <div class="flex items-center gap-3 flex-wrap">
+                <button id="soundToggle" class="bg-white/70 hover:bg-white text-black px-3 py-2 rounded-lg text-sm font-semibold shadow-sm cursor-pointer border border-black/20">🔊 Sound: On</button>
+                <select id="testMode" class="bg-white/70 text-black px-3 py-2 rounded-lg text-sm font-semibold cursor-pointer border border-black/20 shadow-sm">
+                    <option value="passage">Standard</option>
+                    <option value="1min">1-Min Speed Sprint</option>
+                    <option value="3min">3-Min Endurance Sprint</option>
+                </select>
+                <button id="darkModeToggle" class="bg-white/70 hover:bg-white text-black p-2.5 rounded-lg shadow-sm cursor-pointer border border-black/20">🌙</button>
+            </div>
+        </div>
+
+        <h1 class="cursive-title mb-6 text-black dark:text-white">Typing Practice Tool <span class="text-xs uppercase tracking-widest bg-black text-white px-2 py-1 rounded ml-2 align-middle">Pro</span></h1>
+
+        <div class="mb-6">
+            <label class="block font-semibold mb-2 text-black dark:text-white" for="fileUpload">Upload your PDF or Image file containing the passage:</label>
+            <input type="file" id="fileUpload" accept=".pdf,image/*" class="block w-full text-sm text-black cursor-pointer border border-black/30 rounded-md p-1 bg-white" />
+        </div>
+
+        <div class="mb-6 flex items-center flex-wrap gap-4">
+            <button id="formatBtn" class="text-white px-5 py-2 rounded-md font-semibold transition shadow-sm hover:opacity-90 cursor-pointer" style="background-color: #FF002B;">Submit and Format file</button>
+            <div id="loader" class="hidden loader"></div>
+        </div>
+
+        <div class="mb-6 p-4 border border-black/30 rounded-md text-black" style="background-color: #FFC0CB;">
+            <label class="block font-semibold mb-1 text-black text-sm" for="manualInput">Or Paste Text Directly:</label>
+            <textarea id="manualInput" rows="3" placeholder="Paste raw text here if needed..." class="w-full p-2 border border-gray-400 rounded-md text-sm bg-white text-black"></textarea>
+            <button id="manualFormatBtn" class="mt-2 text-white px-4 py-1.5 rounded-md text-sm font-semibold transition shadow-sm hover:opacity-90 cursor-pointer" style="background-color: #FF002B;">Format Pasted Text</button>
+        </div>
+
+        <div class="mb-6 p-4 border border-black/30 rounded-md text-black" style="background-color: #FFC0CB;">
+            <div class="flex justify-between items-center mb-2">
+                <label class="font-semibold text-black" for="formattedOutput">Formatted Output:</label>
+                <span class="text-sm font-semibold text-black bg-white/60 px-3 py-1 rounded-md shadow-xs"><span id="formattedWordCount">0</span> words</span>
+            </div>
+            <textarea id="formattedOutput" rows="8" readonly class="w-full p-3 border border-gray-400 rounded-md bg-white text-black font-mono text-sm" placeholder="Formatted passage will appear here..."></textarea>
+        </div>
+
+        <!-- Typing Space with Sound Profile Dropdown placed immediately left of the timer -->
+        <div class="mb-6 p-4 border border-black/30 rounded-md text-black" style="background-color: #FFC0CB;">
+            <div class="flex justify-between items-center mb-2 flex-wrap gap-2">
+                <label class="font-semibold text-black" for="userInput">Typing Space . . .</label>
+                
+                <div class="flex items-center gap-2">
+                    <!-- Sound Profile Dropdown positioned directly to the left of the timer -->
+                    <select id="soundProfile" class="bg-white/80 text-black px-2.5 py-1 rounded-md text-xs font-semibold cursor-pointer border border-black/20 shadow-xs">
+                        <optgroup label="Sample Audio Files">
+                            <option value="sample-mechanical">🎙️ Mechanical Keyboard</option>
+                        </optgroup>
+                        <optgroup label="Synthesized Keyboards">
+                            <option value="mechanical">⌨️ Synth Mechanical</option>
+                            <option value="woodblock">🌿 Forest Timber</option>
+                            <option value="typewriter">📜 Vintage Typewriter</option>
+                            <option value="magnetic">⚡ Magnetic Switch</option>
+                            <option value="bubble">🫧 Bubble Pop</option>
+                        </optgroup>
+                        <optgroup label="Raw Web Audio Waves">
+                            <option value="sine">🌊 Sine Wave (Soft/Pure)</option>
+                            <option value="square">🔲 Square Wave (8-Bit Bleep)</option>
+                            <option value="sawtooth">📐 Sawtooth Wave (Bright/Buzzy)</option>
+                            <option value="triangle">🔺 Triangle Wave (Warm)</option>
+                        </optgroup>
+                    </select>
+
+                    <span class="text-sm font-semibold text-black bg-white/60 px-3 py-1 rounded-md shadow-xs"><span id="liveTimer">00:00</span></span>
+                </div>
+            </div>
+            <textarea id="userInput" rows="8" placeholder="Start typing here..." class="w-full p-3 border border-gray-400 rounded-md focus:ring-2 focus:ring-black focus:outline-none font-mono text-sm bg-white text-black" disabled></textarea>
+        </div>
+
+        <div class="mb-6 flex justify-between items-center flex-wrap gap-4">
+            <button id="calcBtn" class="text-white px-5 py-2 rounded-md font-semibold transition shadow-sm hover:opacity-95 cursor-pointer" style="background-color: #22c55e;">Submit & Calculate</button>
+            <button id="resetBtn" class="text-black px-5 py-2 rounded-md font-semibold transition shadow-sm hover:opacity-95 cursor-pointer" style="background-color: #eab308;">Reset</button>
+        </div>
+
+        <div id="results" class="hidden p-4 border border-black/30 rounded-md text-black mb-6" style="background-color: #FFC0CB;">
+            <h3 class="font-bold text-lg text-black mb-3">Performance Results:</h3>
+            <div class="flex justify-between gap-4">
+                <div class="space-y-2">
+                    <p class="text-black"><strong>Word:</strong> <span id="wordCount">0</span>/<span id="totalTargetWords">0</span></p>
+                    <p class="text-black"><strong>Typing Duration:</strong> <span id="timeTaken">00:00</span></p>
+                    <p class="text-black"><strong>Typing Speed:</strong> <span id="wpm">0</span> WPM</p>
+                </div>
+                <div class="space-y-2 text-right">
+                    <p class="text-black"><strong>Accuracy:</strong> <span id="accuracy">00.00</span>%</p>
+                    <p class="text-black"><strong>Typing Errors:</strong> <span id="wordErrors">0</span> + <span id="punctuationErrors">0</span> = <span id="totalErrors">0</span></p>
+                    <p class="text-black"><strong>Left words:</strong> <span id="wordsLeft">0</span></p>
+                </div>
+            </div>
+        </div>
+
+        <div id="diffContainer" class="hidden mb-6 p-4 border border-black/30 rounded-md text-black" style="background-color: #FFC0CB;">
+            <h3 class="font-bold text-lg text-black mb-2">Visual Error Inspector (Diff View):</h3>
+            <p class="text-xs text-black/70 mb-3"><span class="text-green-700 font-semibold">Green</span> = Correct | <span class="text-red-700 font-semibold">Red</span> = Incorrect / Wrong Word | <span class="text-yellow-700 font-semibold">Yellow</span> = Missing Original Text</p>
+            <div id="diffOutput" class="p-3 bg-white border border-gray-400 rounded-md font-mono text-sm max-h-48 overflow-y-auto leading-relaxed"></div>
+        </div>
+
+        <div class="p-4 border border-black/30 rounded-md text-black" style="background-color: #FFC0CB;">
+            <div class="flex justify-between items-center mb-2 flex-wrap gap-2">
+                <h3 class="font-bold text-base text-black">Personal Session History & Bests</h3>
+                <div class="flex items-center gap-2 flex-wrap">
+                    <button id="linkExcelBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-1 rounded text-xs font-semibold shadow-xs cursor-pointer">🔗</button>
+                    <button id="clearHistoryBtn" class="text-xs bg-red-600 text-white px-2.5 py-1 rounded hover:opacity-90 cursor-pointer">Clear</button>
+                </div>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs bg-white rounded border border-gray-300">
+                    <thead>
+                        <tr class="bg-gray-200 border-b border-gray-300 text-black">
+                            <th class="p-2">Date / Time</th>
+                            <th class="p-2">Mode</th>
+                            <th class="p-2">Duration</th>
+                            <th class="p-2">WPM</th>
+                            <th class="p-2">Accuracy</th>
+                            <th class="p-2">Errors</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historyTableBody">
+                        <tr><td colspan="6" class="p-3 text-center text-gray-500">No practice attempts recorded yet.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+
+        let startTime = null;
+        let isTimerStarted = false;
+        let timerInterval = null;
+        let soundEnabled = true;
+        let sprintDurationSeconds = 0;
+        let fileHandle = null;
+
+        const mechanicalAudioSample = new Audio('https://cdn.yoavik.com/codepen/mechanical-keyboard/keytype.mp3');
+
+        const fileUpload = document.getElementById('fileUpload');
+        const formatBtn = document.getElementById('formatBtn');
+        const loader = document.getElementById('loader');
+        const manualInput = document.getElementById('manualInput');
+        const manualFormatBtn = document.getElementById('manualFormatBtn');
+        const formattedOutput = document.getElementById('formattedOutput');
+        const formattedWordCount = document.getElementById('formattedWordCount');
+        const userInput = document.getElementById('userInput');
+        const calcBtn = document.getElementById('calcBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const results = document.getElementById('results');
+        const liveTimer = document.getElementById('liveTimer');
+        const darkModeToggle = document.getElementById('darkModeToggle');
+        const bodyRoot = document.getElementById('bodyRoot');
+        const mainContainer = document.getElementById('mainContainer');
+        const soundToggle = document.getElementById('soundToggle');
+        const soundProfileSelect = document.getElementById('soundProfile');
+        const testModeSelect = document.getElementById('testMode');
+        const diffContainer = document.getElementById('diffContainer');
+        const diffOutput = document.getElementById('diffOutput');
+        const historyTableBody = document.getElementById('historyTableBody');
+        const clearHistoryBtn = document.getElementById('clearHistoryBtn');
+        const linkExcelBtn = document.getElementById('linkExcelBtn');
+
+        const DB_NAME = 'TypingToolDB';
+        const STORE_NAME = 'fileHandles';
+
+        function openDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(DB_NAME, 1);
+                request.onupgradeneeded = (e) => {
+                    const db = e.target.result;
+                    if (!db.objectStoreNames.contains(STORE_NAME)) {
+                        db.createObjectStore(STORE_NAME);
+                    }
+                };
+                request.onsuccess = (e) => resolve(e.target.result);
+                request.onerror = (e) => reject(e.target.error);
+            });
+        }
+
+        async function saveHandleToDB(handle) {
+            const db = await openDB();
+            const tx = db.transaction(STORE_NAME, 'readwrite');
+            tx.objectStore(STORE_NAME).put(handle, 'activeFile');
+            return tx.complete;
+        }
+
+        async function getHandleFromDB() {
+            const db = await openDB();
+            return new Promise((resolve) => {
+                const tx = db.transaction(STORE_NAME, 'readonly');
+                const request = tx.objectStore(STORE_NAME).get('activeFile');
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = () => resolve(null);
+            });
+        }
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            fileHandle = await getHandleFromDB();
+            if (fileHandle) {
+                linkExcelBtn.innerText = `📁`;
+                linkExcelBtn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+                linkExcelBtn.classList.add('bg-yellow-500', 'hover:bg-yellow-600');
+            }
+        });
+
+        linkExcelBtn.addEventListener('click', async () => {
+            try {
+                if (fileHandle) {
+                    const options = { mode: 'readwrite' };
+                    if ((await fileHandle.queryPermission(options)) === 'granted') {
+                        await loadHistoryFromFile(fileHandle);
+                        linkExcelBtn.innerText = `✓ `;
+                        linkExcelBtn.classList.remove('bg-yellow-500', 'hover:bg-yellow-600');
+                        linkExcelBtn.classList.add('bg-green-600', 'cursor-default');
+                        alert("Successfully reconnected and fetched history from your linked CSV file!");
+                        return;
+                    }
+                }
+
+                const createNew = confirm("Do you want to CREATE a new CSV file?\n\nClick 'OK' to Create a New File\nClick 'Cancel' to Open an Existing File");
+
+                if (createNew) {
+                    const handle = await window.showSaveFilePicker({
+                        suggestedName: 'typing_history.csv',
+                        types: [{
+                            description: 'CSV Files (Excel Compatible)',
+                            accept: { 'text/csv': ['.csv'] }
+                        }],
+                    });
+                    
+                    fileHandle = handle;
+                    await saveHandleToDB(fileHandle);
+                    
+                    const history = JSON.parse(localStorage.getItem('typingHistory') || '[]');
+                    let csvContent = "Date/Time,Mode,Duration,WPM,Accuracy,Errors\r\n";
+                    history.forEach(row => {
+                        csvContent += `"${row.date}","${row.mode}","${row.duration}","${row.wpm}","${row.accuracy}","${row.errors}"\r\n`;
+                    });
+                    const writableStream = await fileHandle.createWritable();
+                    await writableStream.write(csvContent);
+                    await writableStream.close();
+
+                    linkExcelBtn.innerText = `✓`;
+                    linkExcelBtn.classList.remove('bg-blue-600', 'bg-yellow-500');
+                    linkExcelBtn.classList.add('bg-green-600', 'cursor-default');
+                    alert("New file created and linked successfully!");
+                } else {
+                    const [handle] = await window.showOpenFilePicker({
+                        multiple: false,
+                        types: [{
+                            description: 'CSV Files (Excel Compatible)',
+                            accept: { 'text/csv': ['.csv'] }
+                        }],
+                    });
+                    
+                    fileHandle = handle;
+                    await saveHandleToDB(fileHandle);
+                    await loadHistoryFromFile(fileHandle);
+
+                    linkExcelBtn.innerText = `✓`;
+                    linkExcelBtn.classList.remove('bg-blue-600', 'bg-yellow-500');
+                    linkExcelBtn.classList.add('bg-green-600', 'cursor-default');
+                    alert("Existing file opened and history fetched successfully!");
+                }
+
+            } catch (err) {
+                console.log("File selection or creation cancelled.", err);
+            }
+        });
+
+        async function loadHistoryFromFile(handle) {
+            try {
+                const file = await handle.getFile();
+                const text = await file.text();
+                
+                if (!text || text.trim() === "") return;
+
+                const lines = text.trim().split(/\r\n|\n/);
+                if (lines.length <= 1) return;
+
+                let importedHistory = [];
+                for (let i = 1; i < lines.length; i++) {
+                    const line = lines[i].trim();
+                    if (!line) continue;
+                    
+                    const cols = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || line.split(',');
+                    const cleanCols = cols.map(val => val ? val.replace(/^"|"$/g, '').trim() : '');
+
+                    if (cleanCols.length >= 6) {
+                        importedHistory.push({
+                            date: cleanCols[0],
+                            mode: cleanCols[1],
+                            duration: cleanCols[2],
+                            wpm: cleanCols[3],
+                            accuracy: cleanCols[4],
+                            errors: cleanCols[5]
+                        });
+                    }
+                }
+
+                if (importedHistory.length > 0) {
+                    let localHistory = JSON.parse(localStorage.getItem('typingHistory') || '[]');
+                    const combined = [...importedHistory, ...localHistory];
+                    
+                    const uniqueHistory = [];
+                    const seen = new Set();
+                    combined.forEach((item) => {
+                        const identifier = `${item.date}_${item.wpm}_${item.accuracy}`;
+                        if (!seen.has(identifier)) {
+                            seen.add(identifier);
+                            uniqueHistory.push(item);
+                        }
+                    });
+
+                    localStorage.setItem('typingHistory', JSON.stringify(uniqueHistory));
+                    renderHistory();
+                }
+            } catch (e) {
+                console.error("Could not read history from file:", e);
+                alert("Error reading file data. Make sure it's a valid CSV file.");
+            }
+        }
+
+        function playSound(type) {
+            if (!soundEnabled) return;
+            const profile = soundProfileSelect.value;
+
+            try {
+                if (type === 'success') {
+                    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    if (audioCtx.state === 'suspended') audioCtx.resume();
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.frequency.setValueAtTime(587.33, audioCtx.currentTime);
+                    osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.1);
+                    gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+                    osc.start(); 
+                    osc.stop(audioCtx.currentTime + 0.3);
+                    return;
+                }
+
+                if (profile === 'sample-mechanical') {
+                    mechanicalAudioSample.pause();
+                    mechanicalAudioSample.currentTime = 0;
+                    mechanicalAudioSample.play().catch(() => {});
+                    return;
+                }
+
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+
+                if (profile === 'mechanical') {
+                    const osc1 = audioCtx.createOscillator();
+                    const gain1 = audioCtx.createGain();
+                    osc1.type = 'triangle';
+                    osc1.frequency.setValueAtTime(180 + Math.random() * 40, audioCtx.currentTime);
+                    gain1.gain.setValueAtTime(0.12, audioCtx.currentTime);
+                    gain1.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.03);
+                    osc1.connect(gain1);
+                    gain1.connect(audioCtx.destination);
+                    osc1.start(); osc1.stop(audioCtx.currentTime + 0.03);
+
+                    const osc2 = audioCtx.createOscillator();
+                    const gain2 = audioCtx.createGain();
+                    osc2.type = 'square';
+                    osc2.frequency.setValueAtTime(850 + Math.random() * 150, audioCtx.currentTime);
+                    gain2.gain.setValueAtTime(0.05, audioCtx.currentTime);
+                    gain2.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.015);
+                    osc2.connect(gain2);
+                    gain2.connect(audioCtx.destination);
+                    osc2.start(); osc2.stop(audioCtx.currentTime + 0.015);
+
+                } else if (['sine', 'square', 'sawtooth', 'triangle'].includes(profile)) {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = profile;
+                    osc.frequency.setValueAtTime(350 + Math.random() * 80, audioCtx.currentTime);
+                    gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.03);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.03);
+
+                } else {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+
+                    if (profile === 'woodblock') {
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(320, audioCtx.currentTime);
+                        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.02);
+                        osc.start(); osc.stop(audioCtx.currentTime + 0.02);
+                    } else if (profile === 'bubble') {
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+                        osc.frequency.exponentialRampToValueAtTime(950, audioCtx.currentTime + 0.04);
+                        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.04);
+                        osc.start(); osc.stop(audioCtx.currentTime + 0.04);
+                    } else if (profile === 'magnetic') {
+                        osc.type = 'sawtooth';
+                        osc.frequency.setValueAtTime(1100 + Math.random() * 200, audioCtx.currentTime);
+                        gain.gain.setValueAtTime(0.06, audioCtx.currentTime);
+                        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.018);
+                        osc.start(); osc.stop(audioCtx.currentTime + 0.018);
+                    } else if (profile === 'typewriter') {
+                        osc.type = 'sawtooth';
+                        osc.frequency.setValueAtTime(450 + Math.random() * 100, audioCtx.currentTime);
+                        gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+                        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.05);
+                        osc.start(); osc.stop(audioCtx.currentTime + 0.05);
+                    }
+                }
+            } catch (e) {}
+        }
+
+        darkModeToggle.addEventListener('click', () => {
+            const isDark = bodyRoot.classList.toggle('dark');
+            if (isDark) {
+                darkModeToggle.innerText = '☀️';
+                bodyRoot.style.backgroundColor = '#121212';
+                mainContainer.style.backgroundColor = '#1e1e1e';
+            } else {
+                darkModeToggle.innerText = '🌙';
+                bodyRoot.style.backgroundColor = '#FFE6EA';
+                mainContainer.style.backgroundColor = '#FF8A9D';
+            }
+        });
+
+        soundToggle.addEventListener('click', () => {
+            soundEnabled = !soundEnabled;
+            soundToggle.innerText = soundEnabled ? '🔊 Sound: On' : '🔇 Sound: Off';
+        });
+
+        testModeSelect.addEventListener('change', () => {
+            const val = testModeSelect.value;
+            if (val === '1min') sprintDurationSeconds = 60;
+            else if (val === '3min') sprintDurationSeconds = 180;
+            else sprintDurationSeconds = 0;
+            resetTestState();
+        });
+
+        function updateFormattedWordCount(text) {
+            const trimmed = text.trim();
+            const count = trimmed === "" ? 0 : trimmed.split(/\s+/).length;
+            formattedWordCount.innerText = count;
+        }
+
+        function processAndDisplay(rawText) {
+            const cleanedText = formatPassage(rawText);
+            formattedOutput.value = cleanedText;
+            updateFormattedWordCount(cleanedText);
+            userInput.disabled = false;
+            userInput.focus();
+            loader.classList.add('hidden');
+        }
+
+        formatBtn.addEventListener('click', async () => {
+            const file = fileUpload.files[0];
+            if (!file) { alert("Please select a PDF or image file first."); return; }
+            loader.classList.remove('hidden');
+
+            try {
+                const worker = await Tesseract.createWorker('eng', 1, {
+                    logger: m => console.log(m)
+                });
+
+                if (file.type.startsWith('image/')) {
+                    const img = document.createElement('img');
+                    const canvas = document.createElement('canvas');
+                    const context = canvas.getContext('2d');
+                    img.src = URL.createObjectURL(file);
+                    await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject; });
+                    
+                    const zoomFactor = 3.0;
+                    canvas.width = img.width * zoomFactor;
+                    canvas.height = img.height * zoomFactor;
+                    context.imageSmoothingEnabled = true;
+                    context.imageSmoothingQuality = 'high';
+                    context.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+                    const result = await worker.recognize(canvas);
+                    await worker.terminate();
+
+                    if (!result.data.text.trim()) {
+                        loader.classList.add('hidden');
+                        alert("No text could be detected in this image.");
+                        return;
+                    }
+                    processAndDisplay(result.data.text);
+                    return;
+                }
+
+                const reader = new FileReader();
+                reader.onload = async function() {
+                    try {
+                        const typedarray = new Uint8Array(this.result);
+                        const pdf = await pdfjsLib.getDocument(typedarray).promise;
+                        let ocrText = "";
+
+                        for (let i = 1; i <= pdf.numPages; i++) {
+                            const page = await pdf.getPage(i);
+                            const viewport = page.getViewport({ scale: 3.0 });
+                            const canvas = document.createElement('canvas');
+                            const context = canvas.getContext('2d');
+                            canvas.height = viewport.height;
+                            canvas.width = viewport.width;
+
+                            await page.render({ canvasContext: context, viewport: viewport }).promise;
+                            const result = await worker.recognize(canvas);
+                            ocrText += result.data.text + "\n";
+                        }
+                        
+                        await worker.terminate();
+
+                        if (!ocrText.trim()) {
+                            loader.classList.add('hidden');
+                            alert("Could not extract text from this PDF. Try copying and pasting the text directly.");
+                            return;
+                        }
+                        processAndDisplay(ocrText);
+
+                    } catch (pdfErr) {
+                        console.error(pdfErr);
+                        await worker.terminate();
+                        loader.classList.add('hidden');
+                        alert("Error parsing PDF structure. Please use the direct text paste option below.");
+                    }
+                };
+                reader.readAsArrayBuffer(file);
+
+            } catch (err) {
+                console.error(err);
+                loader.classList.add('hidden');
+                alert("An error occurred while initializing OCR. Check your internet connection or use the manual text box below.");
+            }
+        });
+
+        manualFormatBtn.addEventListener('click', () => {
+            const text = manualInput.value.trim();
+            if (!text) { alert("Please paste some text first."); return; }
+            processAndDisplay(text);
+        });
+
+        function formatPassage(text) {
+            let cleanText = text.replace(/Practice Results:[\s\S]*?Your Answer with Corrections:/i, '');
+            cleanText = cleanText.replace(/Total Missing:[\s\S]*/i, '');
+            cleanText = cleanText.replace(/ _\b/g, '. ').replace(/\b\|\b/g, 'I');
+
+            return cleanText
+                .replace(/\b1\b/g, 'I').replace(/\b1'm\b/gi, "I'm").replace(/\b1'll\b/gi, "I'll").replace(/\b1've\b/gi, "I've").replace(/\b1'd\b/gi, "I'd")
+                .replace(/\s+/g, ' ').replace(/[^\s]+\s*\(([^)]+)\)/g, '$1').replace(/[()]/g, '').replace(/\bi\b/g, 'I')
+                .replace(/\s+([.,?!])/g, '$1').replace(/\s+/g, ' ').trim();
+        }
+
+        userInput.addEventListener('keydown', (e) => {
+            playSound('key');
+
+            if (!isTimerStarted) {
+                startTime = new Date();
+                isTimerStarted = true;
+
+                timerInterval = setInterval(() => {
+                    const now = new Date();
+                    const diffSeconds = Math.floor((now - startTime) / 1000);
+
+                    if (sprintDurationSeconds > 0) {
+                        const remaining = sprintDurationSeconds - diffSeconds;
+                        if (remaining <= 0) {
+                            clearInterval(timerInterval);
+                            liveTimer.innerText = '00:00';
+                            triggerCalculation();
+                            return;
+                        }
+                        const mins = Math.floor(remaining / 60);
+                        const secs = remaining % 60;
+                        liveTimer.innerText = String(mins).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
+                    } else {
+                        const mins = Math.floor(diffSeconds / 60);
+                        const secs = diffSeconds % 60;
+                        liveTimer.innerText = String(mins).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
+                    }
+                }, 1000);
+            }
+        });
+
+        calcBtn.addEventListener('click', () => {
+            if (!isTimerStarted) { alert("You haven't typed anything yet!"); return; }
+            triggerCalculation();
+        });
+
+        function triggerCalculation() {
+            clearInterval(timerInterval);
+            playSound('success');
+
+            const endTime = new Date();
+            const timeDiffInSecondsTotal = Math.floor((endTime - startTime) / 1000);
+            const effectiveSeconds = sprintDurationSeconds > 0 ? Math.min(timeDiffInSecondsTotal, sprintDurationSeconds) : timeDiffInSecondsTotal;
+
+            const minutes = Math.floor(effectiveSeconds / 60);
+            const seconds = effectiveSeconds % 60;
+            const formattedTime = String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0');
+            const timeDiffInMinutes = effectiveSeconds / 60;
+
+            const originalText = formattedOutput.value.trim();
+            const targetWords = originalText === "" ? [] : originalText.split(/\s+/);
+            const totalTargetCount = targetWords.length;
+
+            const typedText = userInput.value.trim();
+            const typedWords = typedText === "" ? [] : typedText.split(/\s+/);
+            const wordsTypedCount = typedWords.length;
+
+            const n = targetWords.length;
+            const m = typedWords.length;
+            const dp = Array(n + 1).fill(0).map(() => Array(m + 1).fill(0));
+
+            for (let i = 1; i <= n; i++) {
+                const cleanTarget = targetWords[i - 1].toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?]/g, "");
+                for (let j = 1; j <= m; j++) {
+                    const cleanTyped = typedWords[j - 1].toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?]/g, "");
+                    if (cleanTarget === cleanTyped && cleanTarget !== "") {
+                        dp[i][j] = dp[i - 1][j - 1] + 1;
+                    } else {
+                        dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
+                    }
+                }
+            }
+
+            let i = n, j = m;
+            const ops = [];
+            while (i > 0 || j > 0) {
+                const cleanTarget = i > 0 ? targetWords[i - 1].toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?]/g, "") : "";
+                const cleanTyped = j > 0 ? typedWords[j - 1].toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?]/g, "") : "";
+
+                if (i > 0 && j > 0 && cleanTarget === cleanTyped && cleanTarget !== "") {
+                    ops.unshift({ type: 'match', target: targetWords[i - 1], typed: typedWords[j - 1] });
+                    i--; j--;
+                } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+                    ops.unshift({ type: 'extra', typed: typedWords[j - 1] });
+                    j--;
+                } else if (i > 0 && (j === 0 || dp[i][j - 1] < dp[i - 1][j])) {
+                    ops.unshift({ type: 'missing', target: targetWords[i - 1] });
+                    i--;
+                }
+            }
+
+            let wrongWords = 0;
+            let punctuationErrors = 0;
+            let diffHtml = "";
+
+            ops.forEach(op => {
+                if (op.type === 'match') {
+                    diffHtml += `<span class="correct-highlight">${op.typed}</span> `;
+                } else if (op.type === 'missing') {
+                    wrongWords++;
+                    diffHtml += `<span class="missing-highlight" title="Missing word">${op.target}</span> `;
+                } else if (op.type === 'extra') {
+                    wrongWords++;
+                    diffHtml += `<span class="error-highlight" title="Extra/Wrong word">${op.typed}</span> `;
+                }
+            });
+
+            const totalErrors = wrongWords + punctuationErrors;
+            let accuracyVal = 100;
+            if (totalTargetCount > 0) {
+                accuracyVal = Math.max(0, ((totalTargetCount - totalErrors) / totalTargetCount) * 100);
+            }
+
+            const wpm = timeDiffInMinutes > 0 ? Math.round(wordsTypedCount / timeDiffInMinutes) : 0;
+
+            document.getElementById('wordCount').innerText = wordsTypedCount;
+            document.getElementById('totalTargetWords').innerText = totalTargetCount;
+            document.getElementById('timeTaken').innerText = formattedTime;
+            document.getElementById('wpm').innerText = wpm;
+            document.getElementById('accuracy').innerText = accuracyVal.toFixed(2);
+            document.getElementById('wordErrors').innerText = wrongWords;
+            document.getElementById('punctuationErrors').innerText = punctuationErrors;
+            document.getElementById('totalErrors').innerText = totalErrors;
+            document.getElementById('wordsLeft').innerText = Math.max(0, totalTargetCount - wordsTypedCount);
+
+            results.classList.remove('hidden');
+            diffOutput.innerHTML = diffHtml;
+            diffContainer.classList.remove('hidden');
+
+            saveToHistory({
+                date: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+                mode: testModeSelect.options[testModeSelect.selectedIndex].text,
+                duration: formattedTime,
+                wpm: wpm,
+                accuracy: accuracyVal.toFixed(2) + '%',
+                errors: totalErrors
+            });
+
+            calcBtn.disabled = true;
+            calcBtn.style.backgroundColor = '#9ca3af';
+            calcBtn.style.cursor = 'not-allowed';
+            userInput.disabled = true;
+        }
+
+        async function saveToHistory(record) {
+            let history = JSON.parse(localStorage.getItem('typingHistory') || '[]');
+            history.unshift(record);
+            if (history.length > 20) history = history.slice(0, 20);
+            localStorage.setItem('typingHistory', JSON.stringify(history));
+            renderHistory();
+
+            if (fileHandle) {
+                try {
+                    let csvContent = "Date/Time,Mode,Duration,WPM,Accuracy,Errors\r\n";
+                    history.forEach(row => {
+                        csvContent += `"${row.date}","${row.mode}","${row.duration}","${row.wpm}","${row.accuracy}","${row.errors}"\r\n`;
+                    });
+                    const writableStream = await fileHandle.createWritable();
+                    await writableStream.write(csvContent);
+                    await writableStream.close();
+                } catch (err) {
+                    console.error("Failed to write to local file handle:", err);
+                    fileHandle = null;
+                    linkExcelBtn.innerText = "🔗";
+                    linkExcelBtn.classList.remove('bg-green-600', 'cursor-default');
+                    linkExcelBtn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+                }
+            }
+        }
+
+        function renderHistory() {
+            const history = JSON.parse(localStorage.getItem('typingHistory') || '[]');
+            if (history.length === 0) {
+                historyTableBody.innerHTML = `<tr><td colspan="6" class="p-3 text-center text-gray-500">No practice attempts recorded yet.</td></tr>`;
+                return;
+            }
+            let html = '';
+            history.forEach(item => {
+                html += `<tr class="border-b border-gray-200 text-black">
+                    <td class="p-2">${item.date}</td>
+                    <td class="p-2">${item.mode}</td>
+                    <td class="p-2">${item.duration}</td>
+                    <td class="p-2 font-bold text-green-700">${item.wpm} WPM</td>
+                    <td class="p-2">${item.accuracy}</td>
+                    <td class="p-2 text-red-600">${item.errors}</td>
+                </tr>`;
+            });
+            historyTableBody.innerHTML = html;
+        }
+
+        clearHistoryBtn.addEventListener('click', () => {
+            localStorage.removeItem('typingHistory');
+            renderHistory();
+        });
+
+        function resetTestState() {
+            clearInterval(timerInstrument = null);
+            userInput.value = '';
+            userInput.disabled = false;
+            userInput.focus();
+            startTime = null;
+            isTimerStarted = false;
+            liveTimer.innerText = sprintDurationSeconds > 0 ? String(Math.floor(sprintDurationSeconds/60)).padStart(2,'0') + ':00' : '00:00';
+            calcBtn.disabled = false;
+            calcBtn.style.backgroundColor = '#22c55e';
+            calcBtn.style.cursor = 'pointer';
+            results.classList.add('hidden');
+            diffContainer.classList.add('hidden');
+        }
+
+        resetBtn.addEventListener('click', resetTestState);
+        renderHistory();
+    </script>
+</body>
+</html>
