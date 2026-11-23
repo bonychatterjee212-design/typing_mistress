@@ -5,9 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Typing Practice Tool - Pro</title>
     <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/tailwindcss@3.4.1/lib/index.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <script>
         tailwind.config = { darkMode: 'class' }
     </script>
@@ -40,33 +43,46 @@
         .cursive-title { font-family: 'Caveat', cursive; font-style: italic; font-size: 2.5rem; }
         .error-highlight { background-color: #fca5a5; color: #7f1d1d; padding: 0 2px; border-radius: 3px; text-decoration: underline wavy #ef4444; }
         .missing-highlight { background-color: #fef08a; color: #713f12; padding: 0 3px; border-radius: 3px; border: 1px dashed #ca8a04; }
-        .correct-highlight { color: #166534; }
+        .correct-highlight { color: #166534; font-weight: 600; }
+        .live-correct { color: #15803d; background-color: rgba(34, 197, 94, 0.1); }
+        .live-incorrect { color: #b91c1c; background-color: rgba(239, 68, 68, 0.2); text-decoration: underline wavy #ef4444; }
+        .live-missed { color: #a16207; background-color: rgba(253, 224, 71, 0.3); border-bottom: 2px dashed #ca8a04; }
+        .live-pending { opacity: 0.6; }
+        .live-cursor { border-left: 2px solid #FF002B; animation: blink 1s infinite; }
+        @keyframes blink { 0%, 100% { border-color: transparent; } 50% { border-color: #FF002B; } }
+        .drag-active { border: 2px dashed #FF002B !important; background-color: rgba(255, 0, 43, 0.05); }
     </style>
 </head>
-<body id="bodyRoot" style="background-color: #FFE6EA;" class="text-black dark:text-white font-sans min-h-screen p-6 transition-colors duration-300">
+<body id="bodyRoot" style="background-color: #FFE6EA;" class="text-black dark:text-white font-sans min-h-screen p-4 sm:p-6 transition-colors duration-300">
 
-    <div class="max-w-4xl mx-auto p-8 rounded-xl shadow-xl text-black dark:text-white transition-colors duration-300" style="background-color: #FF8A9D;" id="mainContainer">
+    <div class="max-w-4xl mx-auto p-4 sm:p-8 rounded-xl shadow-xl text-black dark:text-white transition-colors duration-300" style="background-color: #FF8A9D;" id="mainContainer">
 
-        <div class="flex justify-between items-center mb-6">
-            <div class="border-2 border-dashed border-black/40 rounded-xl p-2 flex items-center justify-center overflow-hidden shadow-sm" style="width: 250px; height: 75px; background-color: #FFC0CB;">
+        <!-- Responsive Top Bar Header -->
+        <div class="flex flex-wrap justify-between items-center gap-4 mb-6">
+            <div class="border-2 border-dashed border-black/40 dark:border-white/40 rounded-xl p-2 flex items-center justify-center overflow-hidden shadow-sm transition-colors duration-300" style="width: 250px; height: 75px; background-color: #FFC0CB;" id="logoBox">
                  <img src="logo2.png" alt="Company Logo" class="h-16 w-auto object-contain rounded-3xl" onerror="this.style.display='none'"/>
             </div>
-            <div class="flex items-center gap-3 flex-wrap">
-                <button id="soundToggle" class="bg-white/70 hover:bg-white text-black px-3 py-2 rounded-lg text-sm font-semibold shadow-sm cursor-pointer border border-black/20">🔊 Sound: On</button>
-                <select id="testMode" class="bg-white/70 text-black px-3 py-2 rounded-lg text-sm font-semibold cursor-pointer border border-black/20 shadow-sm">
+            <div class="flex items-center gap-2 sm:gap-3 flex-wrap">
+                <button id="soundToggle" class="bg-white/70 dark:bg-zinc-800 dark:text-white hover:bg-white text-black px-3 py-2 rounded-lg text-sm font-semibold shadow-sm cursor-pointer border border-black/20 dark:border-white/20">🔊 Sound: On</button>
+                <select id="testMode" class="bg-white/70 dark:bg-zinc-800 dark:text-white text-black px-3 py-2 rounded-lg text-sm font-semibold cursor-pointer border border-black/20 dark:border-white/20 shadow-sm max-w-[160px] sm:max-w-none">
                     <option value="passage">Standard</option>
                     <option value="1min">1-Min Speed Sprint</option>
-                    <option value="3min">3-Min Endurance Sprint</option>
+                    <option value="3min">3-Min Mid Sprint</option>
+					<option value="5min">5-Min Main Sprint</option>
+					<option value="10min">10-Min Practice Sprint</option>
+					<option value="15min">15-Min Exam Ready</option>
+					<option value="20min">20-Min Marathon Sprint</option>
                 </select>
-                <button id="darkModeToggle" class="bg-white/70 hover:bg-white text-black p-2.5 rounded-lg shadow-sm cursor-pointer border border-black/20">🌙</button>
+                <button id="darkModeToggle" class="bg-white/70 dark:bg-zinc-800 dark:text-white hover:bg-white text-black p-2.5 rounded-lg shadow-sm cursor-pointer border border-black/20 dark:border-white/20">🌙</button>
             </div>
         </div>
 
-        <h1 class="cursive-title mb-6 text-black dark:text-white">Typing Practice Tool <span class="text-xs uppercase tracking-widest bg-black text-white px-2 py-1 rounded ml-2 align-middle">Pro</span></h1>
+        <h1 class="cursive-title mb-6 text-black dark:text-white">Typing Practice Tool <span class="text-xs uppercase tracking-widest bg-black dark:bg-white dark:text-black text-white px-2 py-1 rounded ml-2 align-middle">Pro</span></h1>
 
-        <div class="mb-6">
-            <label class="block font-semibold mb-2 text-black dark:text-white" for="fileUpload">Upload your PDF or Image file containing the passage:</label>
-            <input type="file" id="fileUpload" accept=".pdf,image/*" class="block w-full text-sm text-black cursor-pointer border border-black/30 rounded-md p-1 bg-white" />
+        <!-- Drag & Drop / Upload Zone -->
+        <div id="dropZone" class="mb-6 p-6 border-2 border-dashed border-black/40 dark:border-white/40 rounded-xl transition theme-box" style="background-color: #FFC0CB;" data-light-bg="#FFC0CB">
+            <label class="block font-semibold mb-2 text-black dark:text-white pointer-events-none" for="fileUpload">Upload your PDF or Image file (or drag & drop / paste image):</label>
+            <input type="file" id="fileUpload" accept=".pdf,image/*" class="block w-full text-sm text-black dark:text-white cursor-pointer border border-black/30 dark:border-zinc-600 rounded-md p-1 bg-white dark:bg-zinc-700" />
         </div>
 
         <div class="mb-6 flex items-center flex-wrap gap-4">
@@ -74,28 +90,100 @@
             <div id="loader" class="hidden loader"></div>
         </div>
 
-        <div class="mb-6 p-4 border border-black/30 rounded-md text-black" style="background-color: #FFC0CB;">
-            <label class="block font-semibold mb-1 text-black text-sm" for="manualInput">Or Paste Text Directly:</label>
-            <textarea id="manualInput" rows="3" placeholder="Paste raw text here if needed..." class="w-full p-2 border border-gray-400 rounded-md text-sm bg-white text-black"></textarea>
+        <div class="mb-6 p-4 border border-black/30 dark:border-white/20 rounded-md text-black dark:text-white theme-box" style="background-color: #FFC0CB;" data-light-bg="#FFC0CB">
+            <label class="block font-semibold mb-1 text-black dark:text-white text-sm" for="manualInput">Or Paste Text Directly:</label>
+            <textarea id="manualInput" rows="3" placeholder="Paste raw text here if needed..." class="w-full p-2 border border-gray-400 dark:border-zinc-600 rounded-md text-sm bg-white dark:bg-zinc-700 text-black dark:text-white"></textarea>
             <button id="manualFormatBtn" class="mt-2 text-white px-4 py-1.5 rounded-md text-sm font-semibold transition shadow-sm hover:opacity-90 cursor-pointer" style="background-color: #FF002B;">Format Pasted Text</button>
         </div>
 
-        <div class="mb-6 p-4 border border-black/30 rounded-md text-black" style="background-color: #FFC0CB;">
-            <div class="flex justify-between items-center mb-2">
-                <label class="font-semibold text-black" for="formattedOutput">Formatted Output:</label>
-                <span class="text-sm font-semibold text-black bg-white/60 px-3 py-1 rounded-md shadow-xs"><span id="formattedWordCount">0</span> words</span>
-            </div>
-            <textarea id="formattedOutput" rows="8" readonly class="w-full p-3 border border-gray-400 rounded-md bg-white text-black font-mono text-sm" placeholder="Formatted passage will appear here..."></textarea>
-        </div>
+<div class="mb-6 p-4
+  rounded-md text-black
+  dark:text-white theme-box"
+  style="background-color: #FFC0CB;"
+  data-light-bg="#FFC0CB">
 
-        <!-- Typing Space with Sound Profile Dropdown placed immediately left of the timer -->
-        <div class="mb-6 p-4 border border-black/30 rounded-md text-black" style="background-color: #FFC0CB;">
+	<div class="flex justify-between items-center mb-2 flex-wrap gap-2">
+
+		<label class="font-semibold text-black dark:text-white"
+			for="livePassageContainer">
+			Typing Display:
+		</label>
+
+		<div class="flex items-center gap-2">
+
+			<button id="liveHighlightToggle"
+				type="button"
+				class="text-xs font-semibold px-3 py-1 rounded-md shadow-sm border border-black/20 bg-green-600 text-white hover:opacity-90">
+				🟢 Highlight: ON
+			</button>
+
+			<span class="text-sm font-semibold text-black dark:text-white bg-white/60 dark:bg-zinc-700 px-3 py-1 rounded-md shadow-xs">
+				<span id="formattedWordCount">0</span>
+				words
+			</span>
+
+		</div>
+
+	</div>
+
+ <div id="livePassageContainer"
+     class="w-full min-w-0 p-3 border border-gray-400 dark:border-zinc-600 rounded-md bg-white dark:bg-zinc-700 text-black dark:text-white font-mono text-sm max-h-48 overflow-y-auto overflow-x-hidden leading-relaxed whitespace-pre-wrap break-words">
+    Formatted passage will appear here...
+</div>
+
+  <textarea id="formattedOutput"
+    class="hidden"></textarea>
+
+</div>
+
+<script>
+  const liveContainer =
+    document.getElementById(
+      "livePassageContainer"
+    );
+
+  const wordCount =
+    document.getElementById(
+      "formattedWordCount"
+    );
+
+  const output =
+    document.getElementById(
+      "formattedOutput"
+    );
+
+function updateDisplay(text) {
+
+    // Display the formatted passage
+    liveContainer.textContent = text;
+
+    // Store the formatted passage
+    output.value = text;
+
+    // Calculate word count
+    const words = text.trim()
+        ? text.trim().split(/\s+/)
+        : [];
+
+    // Update word counter
+    wordCount.textContent = words.length;
+
+    // Automatically scroll to the latest text
+    liveContainer.scrollTop =
+        liveContainer.scrollHeight;
+}
+</script>
+
+        <!-- Typing Space -->
+        <div class="mb-6 p-4 border border-black/30 dark:border-white/20 rounded-md text-black dark:text-white theme-box" style="background-color: #FFC0CB;" data-light-bg="#FFC0CB">
             <div class="flex justify-between items-center mb-2 flex-wrap gap-2">
-                <label class="font-semibold text-black" for="userInput">Typing Space . . .</label>
-                
                 <div class="flex items-center gap-2">
-                    <!-- Sound Profile Dropdown positioned directly to the left of the timer -->
-                    <select id="soundProfile" class="bg-white/80 text-black px-2.5 py-1 rounded-md text-xs font-semibold cursor-pointer border border-black/20 shadow-xs">
+                    <label class="font-semibold text-black dark:text-white" for="userInput">Typing Space . . .</label>
+                    <span class="text-xs bg-black/10 dark:bg-white/10 px-2 py-0.5 rounded text-black/70 dark:text-white/70 hidden sm:inline">Shortcut: Esc (Reset) | Ctrl+Enter (Submit)</span>
+                </div>
+                
+                <div class="flex items-center gap-2 flex-wrap">
+                    <select id="soundProfile" class="bg-white/80 dark:bg-zinc-700 text-black dark:text-white px-2.5 py-1 rounded-md text-xs font-semibold cursor-pointer border border-black/20 dark:border-white/20 shadow-xs max-w-[140px] sm:max-w-none">
                         <optgroup label="Sample Audio Files">
                             <option value="sample-mechanical">🎙️ Mechanical Keyboard</option>
                         </optgroup>
@@ -114,10 +202,10 @@
                         </optgroup>
                     </select>
 
-                    <span class="text-sm font-semibold text-black bg-white/60 px-3 py-1 rounded-md shadow-xs"><span id="liveTimer">00:00</span></span>
+                    <span class="text-sm font-semibold text-black dark:text-white bg-white/60 dark:bg-zinc-700 px-3 py-1 rounded-md shadow-xs"><span id="liveTimer">00:00</span></span>
                 </div>
             </div>
-            <textarea id="userInput" rows="8" placeholder="Start typing here..." class="w-full p-3 border border-gray-400 rounded-md focus:ring-2 focus:ring-black focus:outline-none font-mono text-sm bg-white text-black" disabled></textarea>
+            <textarea id="userInput" rows="6" placeholder="Start typing here..." class="w-full p-3 border border-gray-400 dark:border-zinc-600 rounded-md focus:ring-2 focus:ring-black dark:focus:ring-white focus:outline-none font-mono text-sm bg-white dark:bg-zinc-700 text-black dark:text-white" disabled></textarea>
         </div>
 
         <div class="mb-6 flex justify-between items-center flex-wrap gap-4">
@@ -125,40 +213,51 @@
             <button id="resetBtn" class="text-black px-5 py-2 rounded-md font-semibold transition shadow-sm hover:opacity-95 cursor-pointer" style="background-color: #eab308;">Reset</button>
         </div>
 
-        <div id="results" class="hidden p-4 border border-black/30 rounded-md text-black mb-6" style="background-color: #FFC0CB;">
-            <h3 class="font-bold text-lg text-black mb-3">Performance Results:</h3>
-            <div class="flex justify-between gap-4">
+        <div id="results" class="hidden p-4 border border-black/30 dark:border-white/20 rounded-md text-black dark:text-white mb-6 theme-box" style="background-color: #FFC0CB;" data-light-bg="#FFC0CB">
+            <div class="flex justify-between items-center mb-3 flex-wrap gap-2">
+                <h3 class="font-bold text-lg text-black dark:text-white">Performance Results:</h3>
+                <span id="pbBadge" class="hidden bg-yellow-400 text-black font-bold text-xs px-2.5 py-1 rounded-full shadow-xs animate-bounce">🏆 NEW PERSONAL BEST!</span>
+            </div>
+            <div class="flex justify-between gap-4 flex-wrap">
                 <div class="space-y-2">
-                    <p class="text-black"><strong>Word:</strong> <span id="wordCount">0</span>/<span id="totalTargetWords">0</span></p>
-                    <p class="text-black"><strong>Typing Duration:</strong> <span id="timeTaken">00:00</span></p>
-                    <p class="text-black"><strong>Typing Speed:</strong> <span id="wpm">0</span> WPM</p>
+                    <p class="text-black dark:text-white"><strong>Word:</strong> <span id="wordCount">0</span>/<span id="totalTargetWords">0</span></p>
+                    <p class="text-black dark:text-white"><strong>Typing Duration:</strong> <span id="timeTaken">00:00</span></p>
+                    <p class="text-black dark:text-white"><strong>Typing Speed:</strong> <span id="wpm">0</span> WPM</p>
                 </div>
-                <div class="space-y-2 text-right">
-                    <p class="text-black"><strong>Accuracy:</strong> <span id="accuracy">00.00</span>%</p>
-                    <p class="text-black"><strong>Typing Errors:</strong> <span id="wordErrors">0</span> + <span id="punctuationErrors">0</span> = <span id="totalErrors">0</span></p>
-                    <p class="text-black"><strong>Left words:</strong> <span id="wordsLeft">0</span></p>
+                <div class="space-y-2 text-left sm:text-right">
+                    <p class="text-black dark:text-white"><strong>Accuracy:</strong> <span id="accuracy">00.00</span>%</p>
+                    <p class="text-black dark:text-white"><strong>Typing Errors:</strong> <span id="wordErrors">0</span> + <span id="punctuationErrors">0</span> = <span id="totalErrors">0</span></p>
+                    <p class="text-black dark:text-white"><strong>Left words:</strong> <span id="wordsLeft">0</span></p>
                 </div>
             </div>
         </div>
 
-        <div id="diffContainer" class="hidden mb-6 p-4 border border-black/30 rounded-md text-black" style="background-color: #FFC0CB;">
-            <h3 class="font-bold text-lg text-black mb-2">Visual Error Inspector (Diff View):</h3>
-            <p class="text-xs text-black/70 mb-3"><span class="text-green-700 font-semibold">Green</span> = Correct | <span class="text-red-700 font-semibold">Red</span> = Incorrect / Wrong Word | <span class="text-yellow-700 font-semibold">Yellow</span> = Missing Original Text</p>
-            <div id="diffOutput" class="p-3 bg-white border border-gray-400 rounded-md font-mono text-sm max-h-48 overflow-y-auto leading-relaxed"></div>
+        <div id="diffContainer" class="hidden mb-6 p-4 border border-black/30 dark:border-white/20 rounded-md text-black dark:text-white theme-box" style="background-color: #FFC0CB;" data-light-bg="#FFC0CB">
+            <h3 class="font-bold text-lg text-black dark:text-white mb-2">Visual Error Inspector (Diff View):</h3>
+            <p class="text-xs text-black/70 dark:text-white/70 mb-3"><span class="text-green-700 dark:text-green-400 font-semibold">Green</span> = Correct | <span class="text-red-700 dark:text-red-400 font-semibold">Red</span> = Incorrect / Wrong Word | <span class="text-yellow-700 dark:text-yellow-400 font-semibold">Yellow</span> = Missing Original Text</p>
+            <div id="diffOutput" class="p-3 bg-white dark:bg-zinc-700 border border-gray-400 dark:border-zinc-600 rounded-md font-mono text-sm max-h-48 overflow-y-auto leading-relaxed text-black dark:text-white"></div>
         </div>
 
-        <div class="p-4 border border-black/30 rounded-md text-black" style="background-color: #FFC0CB;">
+        <!-- Analytics Graph Section -->
+        <div class="mb-6 p-4 border border-black/30 dark:border-white/20 rounded-md text-black dark:text-white bg-white dark:bg-zinc-800">
+            <h3 class="font-bold text-base text-black dark:text-white mb-2">📈 WPM Progression Trend</h3>
+            <div class="w-full h-48">
+                <canvas id="trendChart"></canvas>
+            </div>
+        </div>
+
+        <div class="p-4 border border-black/30 dark:border-white/20 rounded-md text-black dark:text-white theme-box" style="background-color: #FFC0CB;" data-light-bg="#FFC0CB">
             <div class="flex justify-between items-center mb-2 flex-wrap gap-2">
-                <h3 class="font-bold text-base text-black">Personal Session History & Bests</h3>
+                <h3 class="font-bold text-base text-black dark:text-white">Personal Session History & Bests</h3>
                 <div class="flex items-center gap-2 flex-wrap">
-                    <button id="linkExcelBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-1 rounded text-xs font-semibold shadow-xs cursor-pointer">🔗</button>
+                    <button id="linkExcelBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-1 rounded text-xs font-semibold shadow-xs cursor-pointer" title="Link CSV/Excel tracking file">🔗 Link CSV</button>
                     <button id="clearHistoryBtn" class="text-xs bg-red-600 text-white px-2.5 py-1 rounded hover:opacity-90 cursor-pointer">Clear</button>
                 </div>
             </div>
             <div class="overflow-x-auto">
-                <table class="w-full text-left text-xs bg-white rounded border border-gray-300">
+                <table class="w-full text-left text-xs bg-white dark:bg-zinc-700 rounded border border-gray-300 dark:border-zinc-600 min-w-[500px]">
                     <thead>
-                        <tr class="bg-gray-200 border-b border-gray-300 text-black">
+                        <tr class="bg-gray-200 dark:bg-zinc-800 border-b border-gray-300 dark:border-zinc-600 text-black dark:text-white">
                             <th class="p-2">Date / Time</th>
                             <th class="p-2">Mode</th>
                             <th class="p-2">Duration</th>
@@ -168,12 +267,30 @@
                         </tr>
                     </thead>
                     <tbody id="historyTableBody">
-                        <tr><td colspan="6" class="p-3 text-center text-gray-500">No practice attempts recorded yet.</td></tr>
+                        <tr><td colspan="6" class="p-3 text-center text-gray-500 dark:text-gray-400">No practice attempts recorded yet.</td></tr>
                     </tbody>
                 </table>
             </div>
         </div>
 
+    </div>
+
+    <!-- CSV Dialog Modal -->
+    <div id="csvModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white dark:bg-zinc-800 rounded-xl p-6 max-w-lg w-full shadow-2xl text-black dark:text-white">
+            <h3 class="text-lg font-bold mb-3">📁 Connect or Create CSV Tracker File</h3>
+            <p class="text-sm text-gray-700 dark:text-gray-300 mb-2">Would you like to create a brand new CSV tracking file or connect to an existing one on your device?</p>
+            <div class="bg-gray-50 dark:bg-zinc-700 border border-gray-200 dark:border-zinc-600 rounded-lg p-3 mb-5 text-xs text-gray-600 dark:text-gray-300 space-y-1">
+                <p class="font-semibold text-gray-800 dark:text-white">💡 Why create or link a CSV file?</p>
+                <p>• <strong>Permanent Offline Backup:</strong> Automatically saves all your typing logs directly to your local computer instead of temporary browser storage.</p>
+                <p>• <strong>Excel & Analytics Compatibility:</strong> Easily open the file later in Microsoft Excel, Google Sheets, or data tools to build custom charts and track your long-term growth.</p>
+            </div>
+            <div class="flex justify-end gap-3 flex-wrap">
+                <button id="modalCancelBtn" class="px-4 py-2 bg-gray-200 dark:bg-zinc-700 hover:bg-gray-300 dark:hover:bg-zinc-600 font-semibold rounded-lg text-sm cursor-pointer">Cancel</button>
+                <button id="modalCreateNewBtn" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-sm cursor-pointer">Create New</button>
+                <button id="modalConnectExistBtn" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg text-sm cursor-pointer">Connect Existing</button>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -185,16 +302,29 @@
         let soundEnabled = true;
         let sprintDurationSeconds = 0;
         let fileHandle = null;
+        let trendChartInstance = null;
 
-        const mechanicalAudioSample = new Audio('https://cdn.yoavik.com/codepen/mechanical-keyboard/keytype.mp3');
+        // --- AUDIO POOLING FOR FAST TYPING ---
+        const audioPoolSize = 8;
+        const mechanicalAudioPool = [];
+        for (let i = 0; i < audioPoolSize; i++) {
+            const aud = new Audio('https://cdn.yoavik.com/codepen/mechanical-keyboard/keytype.mp3');
+            aud.volume = 1.0;
+            mechanicalAudioPool.push(aud);
+        }
+        let audioPoolIndex = 0;
 
         const fileUpload = document.getElementById('fileUpload');
+        const dropZone = document.getElementById('dropZone');
         const formatBtn = document.getElementById('formatBtn');
         const loader = document.getElementById('loader');
         const manualInput = document.getElementById('manualInput');
         const manualFormatBtn = document.getElementById('manualFormatBtn');
         const formattedOutput = document.getElementById('formattedOutput');
+        const livePassageContainer = document.getElementById('livePassageContainer');
         const formattedWordCount = document.getElementById('formattedWordCount');
+		const liveHighlightToggle = document.getElementById('liveHighlightToggle');
+		let liveHighlightEnabled = true;
         const userInput = document.getElementById('userInput');
         const calcBtn = document.getElementById('calcBtn');
         const resetBtn = document.getElementById('resetBtn');
@@ -203,6 +333,7 @@
         const darkModeToggle = document.getElementById('darkModeToggle');
         const bodyRoot = document.getElementById('bodyRoot');
         const mainContainer = document.getElementById('mainContainer');
+        const logoBox = document.getElementById('logoBox');
         const soundToggle = document.getElementById('soundToggle');
         const soundProfileSelect = document.getElementById('soundProfile');
         const testModeSelect = document.getElementById('testMode');
@@ -211,167 +342,222 @@
         const historyTableBody = document.getElementById('historyTableBody');
         const clearHistoryBtn = document.getElementById('clearHistoryBtn');
         const linkExcelBtn = document.getElementById('linkExcelBtn');
+        const pbBadge = document.getElementById('pbBadge');
 
-        const DB_NAME = 'TypingToolDB';
-        const STORE_NAME = 'fileHandles';
-
-        function openDB() {
-            return new Promise((resolve, reject) => {
-                const request = indexedDB.open(DB_NAME, 1);
-                request.onupgradeneeded = (e) => {
-                    const db = e.target.result;
-                    if (!db.objectStoreNames.contains(STORE_NAME)) {
-                        db.createObjectStore(STORE_NAME);
-                    }
-                };
-                request.onsuccess = (e) => resolve(e.target.result);
-                request.onerror = (e) => reject(e.target.error);
-            });
-        }
-
-        async function saveHandleToDB(handle) {
-            const db = await openDB();
-            const tx = db.transaction(STORE_NAME, 'readwrite');
-            tx.objectStore(STORE_NAME).put(handle, 'activeFile');
-            return tx.complete;
-        }
-
-        async function getHandleFromDB() {
-            const db = await openDB();
-            return new Promise((resolve) => {
-                const tx = db.transaction(STORE_NAME, 'readonly');
-                const request = tx.objectStore(STORE_NAME).get('activeFile');
-                request.onsuccess = () => resolve(request.result);
-                request.onerror = () => resolve(null);
-            });
-        }
+        const csvModal = document.getElementById('csvModal');
+        const modalCancelBtn = document.getElementById('modalCancelBtn');
+        const modalCreateNewBtn = document.getElementById('modalCreateNewBtn');
+        const modalConnectExistBtn = document.getElementById('modalConnectExistBtn');
 
         window.addEventListener('DOMContentLoaded', async () => {
-            fileHandle = await getHandleFromDB();
-            if (fileHandle) {
-                linkExcelBtn.innerText = `📁`;
-                linkExcelBtn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
-                linkExcelBtn.classList.add('bg-yellow-500', 'hover:bg-yellow-600');
-            }
+            renderHistory();
+            initChart();
         });
+		
+		
+		liveHighlightToggle.addEventListener('click', () => {
+
+			liveHighlightEnabled = !liveHighlightEnabled;
+
+			if (liveHighlightEnabled) {
+
+				liveHighlightToggle.innerText = '🟢 Highlight: ON';
+
+				liveHighlightToggle.classList.remove(
+					'bg-red-600'
+				);
+
+				liveHighlightToggle.classList.add(
+					'bg-green-600'
+				);
+
+			} else {
+
+				liveHighlightToggle.innerText = '🔴 Highlight: OFF';
+
+				liveHighlightToggle.classList.remove(
+					'bg-green-600'
+				);
+
+				liveHighlightToggle.classList.add(
+					'bg-red-600'
+				);
+
+			}
+
+			renderLivePassage(
+				formattedOutput.value,
+				userInput.value
+			);
+
+		});
+
+
+        async function verifyPermission(fileHandle, readWrite) {
+            const options = {};
+            if (readWrite) {
+                options.mode = 'readwrite';
+            }
+            if ((await fileHandle.queryPermission(options)) === 'granted') {
+                return true;
+            }
+            if ((await fileHandle.requestPermission(options)) === 'granted') {
+                return true;
+            }
+            return false;
+        }
 
         linkExcelBtn.addEventListener('click', async () => {
+            if (fileHandle) {
+                await refreshTableFromCSV();
+                return;
+            }
+
+            if (!window.showSaveFilePicker || !window.showOpenFilePicker) {
+                alert("File System Access API is not supported by your browser. Results will fallback to standard history storage.");
+                return;
+            }
+            csvModal.classList.remove('hidden');
+        });
+
+        async function refreshTableFromCSV() {
             try {
-                if (fileHandle) {
-                    const options = { mode: 'readwrite' };
-                    if ((await fileHandle.queryPermission(options)) === 'granted') {
-                        await loadHistoryFromFile(fileHandle);
-                        linkExcelBtn.innerText = `✓ `;
-                        linkExcelBtn.classList.remove('bg-yellow-500', 'hover:bg-yellow-600');
-                        linkExcelBtn.classList.add('bg-green-600', 'cursor-default');
-                        alert("Successfully reconnected and fetched history from your linked CSV file!");
+                if (!fileHandle) return;
+                if (await verifyPermission(fileHandle, false)) {
+                    const fileData = await fileHandle.getFile();
+                    const textContent = await fileData.text();
+                    const lines = textContent.split(/\r?\n/).filter(line => line.trim() !== "");
+                    
+                    if (lines.length <= 1) {
+                        alert("The linked CSV file is empty or only contains headers.");
                         return;
                     }
+
+                    const loadedHistory = [];
+                    for (let i = 1; i < lines.length; i++) {
+                        const row = lines[i].match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || lines[i].split(',');
+                        if (row.length >= 6) {
+                            loadedHistory.push({
+                                date: row[0].replace(/"/g, ''),
+                                mode: row[1].replace(/"/g, ''),
+                                duration: row[2].replace(/"/g, ''),
+                                wpm: row[3].replace(/"/g, ''),
+                                accuracy: row[4].replace(/"/g, ''),
+                                errors: row[5].replace(/"/g, '')
+                            });
+                        }
+                    }
+
+                    if (loadedHistory.length > 0) {
+                        localStorage.setItem('typingHistory', JSON.stringify(loadedHistory));
+                        renderHistory();
+                        updateChart();
+                    } else {
+                        alert("Could not parse valid records from the linked CSV file.");
+                    }
                 }
-
-                const createNew = confirm("Do you want to CREATE a new CSV file?\n\nClick 'OK' to Create a New File\nClick 'Cancel' to Open an Existing File");
-
-                if (createNew) {
-                    const handle = await window.showSaveFilePicker({
-                        suggestedName: 'typing_history.csv',
-                        types: [{
-                            description: 'CSV Files (Excel Compatible)',
-                            accept: { 'text/csv': ['.csv'] }
-                        }],
-                    });
-                    
-                    fileHandle = handle;
-                    await saveHandleToDB(fileHandle);
-                    
-                    const history = JSON.parse(localStorage.getItem('typingHistory') || '[]');
-                    let csvContent = "Date/Time,Mode,Duration,WPM,Accuracy,Errors\r\n";
-                    history.forEach(row => {
-                        csvContent += `"${row.date}","${row.mode}","${row.duration}","${row.wpm}","${row.accuracy}","${row.errors}"\r\n`;
-                    });
-                    const writableStream = await fileHandle.createWritable();
-                    await writableStream.write(csvContent);
-                    await writableStream.close();
-
-                    linkExcelBtn.innerText = `✓`;
-                    linkExcelBtn.classList.remove('bg-blue-600', 'bg-yellow-500');
-                    linkExcelBtn.classList.add('bg-green-600', 'cursor-default');
-                    alert("New file created and linked successfully!");
-                } else {
-                    const [handle] = await window.showOpenFilePicker({
-                        multiple: false,
-                        types: [{
-                            description: 'CSV Files (Excel Compatible)',
-                            accept: { 'text/csv': ['.csv'] }
-                        }],
-                    });
-                    
-                    fileHandle = handle;
-                    await saveHandleToDB(fileHandle);
-                    await loadHistoryFromFile(fileHandle);
-
-                    linkExcelBtn.innerText = `✓`;
-                    linkExcelBtn.classList.remove('bg-blue-600', 'bg-yellow-500');
-                    linkExcelBtn.classList.add('bg-green-600', 'cursor-default');
-                    alert("Existing file opened and history fetched successfully!");
-                }
-
             } catch (err) {
-                console.log("File selection or creation cancelled.", err);
+                console.error("Error reading CSV file:", err);
+                alert("Failed to read the linked file. It may have been moved or deleted.");
+            }
+        }
+
+        modalCancelBtn.addEventListener('click', () => {
+            csvModal.classList.add('hidden');
+        });
+
+        modalCreateNewBtn.addEventListener('click', async () => {
+            csvModal.classList.add('hidden');
+            try {
+                const options = {
+                    suggestedName: 'typing_practice_results.csv',
+                    types: [{
+                        description: 'CSV Files',
+                        accept: { 'text/csv': ['.csv'] }
+                    }]
+                };
+                fileHandle = await window.showSaveFilePicker(options);
+                if (fileHandle) {
+                    linkExcelBtn.innerText = `🔄 Refresh Table`;
+                    linkExcelBtn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+                    linkExcelBtn.classList.add('bg-green-600', 'hover:bg-green-700');
+                    linkExcelBtn.title = "Refresh table data from linked CSV file";
+                    alert("New CSV tracking file created and linked successfully!");
+                }
+            } catch (err) {
+                if (err.name !== 'AbortError') {
+                    console.error("Error creating file:", err);
+                }
             }
         });
 
-        async function loadHistoryFromFile(handle) {
+        modalConnectExistBtn.addEventListener('click', async () => {
+            csvModal.classList.add('hidden');
             try {
-                const file = await handle.getFile();
-                const text = await file.text();
-                
-                if (!text || text.trim() === "") return;
-
-                const lines = text.trim().split(/\r\n|\n/);
-                if (lines.length <= 1) return;
-
-                let importedHistory = [];
-                for (let i = 1; i < lines.length; i++) {
-                    const line = lines[i].trim();
-                    if (!line) continue;
+                const options = {
+                    multiple: false,
+                    types: [{
+                        description: 'CSV Files',
+                        accept: { 'text/csv': ['.csv'] }
+                    }]
+                };
+                const handles = await window.showOpenFilePicker(options);
+                if (handles && handles.length > 0) {
+                    fileHandle = handles[0];
+                    linkExcelBtn.innerText = `🔄 Refresh Table`;
+                    linkExcelBtn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+                    linkExcelBtn.classList.add('bg-green-600', 'hover:bg-green-700');
+                    linkExcelBtn.title = "Refresh table data from linked CSV file";
                     
-                    const cols = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || line.split(',');
-                    const cleanCols = cols.map(val => val ? val.replace(/^"|"$/g, '').trim() : '');
-
-                    if (cleanCols.length >= 6) {
-                        importedHistory.push({
-                            date: cleanCols[0],
-                            mode: cleanCols[1],
-                            duration: cleanCols[2],
-                            wpm: cleanCols[3],
-                            accuracy: cleanCols[4],
-                            errors: cleanCols[5]
-                        });
-                    }
+                    await refreshTableFromCSV();
+                    alert("Existing CSV tracking file connected successfully!");
                 }
-
-                if (importedHistory.length > 0) {
-                    let localHistory = JSON.parse(localStorage.getItem('typingHistory') || '[]');
-                    const combined = [...importedHistory, ...localHistory];
-                    
-                    const uniqueHistory = [];
-                    const seen = new Set();
-                    combined.forEach((item) => {
-                        const identifier = `${item.date}_${item.wpm}_${item.accuracy}`;
-                        if (!seen.has(identifier)) {
-                            seen.add(identifier);
-                            uniqueHistory.push(item);
-                        }
-                    });
-
-                    localStorage.setItem('typingHistory', JSON.stringify(uniqueHistory));
-                    renderHistory();
+            } catch (err) {
+                if (err.name !== 'AbortError') {
+                    console.error("Error opening file:", err);
                 }
-            } catch (e) {
-                console.error("Could not read history from file:", e);
-                alert("Error reading file data. Make sure it's a valid CSV file.");
             }
-        }
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                resetTestState();
+                csvModal.classList.add('hidden');
+            }
+            if (e.ctrlKey && e.key === 'Enter') {
+                if (isTimerStarted && !calcBtn.disabled) {
+                    triggerCalculation();
+                }
+            }
+        });
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => { e.preventDefault(); dropZone.classList.add('drag-active'); }, false);
+        });
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => { e.preventDefault(); dropZone.classList.remove('drag-active'); }, false);
+        });
+        dropZone.addEventListener('drop', (e) => {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            if (files.length > 0) {
+                fileUpload.files = files;
+                formatBtn.click();
+            }
+        });
+        window.addEventListener('paste', async (e) => {
+            const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+            for (let item of items) {
+                if (item.type.indexOf('image') === 0) {
+                    const blob = item.getAsFile();
+                    const container = new DataTransfer();
+                    container.items.add(blob);
+                    fileUpload.files = container.files;
+                    formatBtn.click();
+                    break;
+                }
+            }
+        });
 
         function playSound(type) {
             if (!soundEnabled) return;
@@ -387,7 +573,7 @@
                     gain.connect(audioCtx.destination);
                     osc.frequency.setValueAtTime(587.33, audioCtx.currentTime);
                     osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.1);
-                    gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                    gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
                     gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
                     osc.start(); 
                     osc.stop(audioCtx.currentTime + 0.3);
@@ -395,13 +581,16 @@
                 }
 
                 if (profile === 'sample-mechanical') {
-                    mechanicalAudioSample.pause();
-                    mechanicalAudioSample.currentTime = 0;
-                    mechanicalAudioSample.play().catch(() => {});
+                    const currentAudio = mechanicalAudioPool[audioPoolIndex];
+                    currentAudio.pause();
+                    currentAudio.currentTime = 0;
+                    currentAudio.volume = 1.0;
+                    currentAudio.play().catch(() => {});
+                    audioPoolIndex = (audioPoolIndex + 1) % audioPoolSize;
                     return;
                 }
 
-                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const audioCtx = window.sharedAudioCtx || (window.sharedAudioCtx = new (window.AudioContext || window.webkitAudioContext)());
                 if (audioCtx.state === 'suspended') audioCtx.resume();
 
                 if (profile === 'mechanical') {
@@ -409,81 +598,101 @@
                     const gain1 = audioCtx.createGain();
                     osc1.type = 'triangle';
                     osc1.frequency.setValueAtTime(180 + Math.random() * 40, audioCtx.currentTime);
-                    gain1.gain.setValueAtTime(0.12, audioCtx.currentTime);
-                    gain1.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.03);
+                    gain1.gain.setValueAtTime(1.0, audioCtx.currentTime);
+                    gain1.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.04);
                     osc1.connect(gain1);
                     gain1.connect(audioCtx.destination);
-                    osc1.start(); osc1.stop(audioCtx.currentTime + 0.03);
+                    osc1.start(); osc1.stop(audioCtx.currentTime + 0.04);
 
                     const osc2 = audioCtx.createOscillator();
                     const gain2 = audioCtx.createGain();
                     osc2.type = 'square';
                     osc2.frequency.setValueAtTime(850 + Math.random() * 150, audioCtx.currentTime);
-                    gain2.gain.setValueAtTime(0.05, audioCtx.currentTime);
-                    gain2.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.015);
+                    gain2.gain.setValueAtTime(0.5, audioCtx.currentTime);
+                    gain2.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.02);
                     osc2.connect(gain2);
                     gain2.connect(audioCtx.destination);
-                    osc2.start(); osc2.stop(audioCtx.currentTime + 0.015);
-
-                } else if (['sine', 'square', 'sawtooth', 'triangle'].includes(profile)) {
+                    osc2.start(); osc2.stop(audioCtx.currentTime + 0.02);
+                } else if (profile === 'woodblock') {
                     const osc = audioCtx.createOscillator();
                     const gain = audioCtx.createGain();
-                    osc.type = profile;
-                    osc.frequency.setValueAtTime(350 + Math.random() * 80, audioCtx.currentTime);
-                    gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(120, audioCtx.currentTime + 0.03);
+                    gain.gain.setValueAtTime(1.2, audioCtx.currentTime);
                     gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.03);
                     osc.connect(gain);
                     gain.connect(audioCtx.destination);
                     osc.start(); osc.stop(audioCtx.currentTime + 0.03);
-
+                } else if (profile === 'typewriter') {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(1200 + Math.random() * 300, audioCtx.currentTime);
+                    gain.gain.setValueAtTime(0.8, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.025);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.025);
+                } else if (profile === 'magnetic') {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(250 + Math.random() * 50, audioCtx.currentTime);
+                    gain.gain.setValueAtTime(0.9, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.035);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.035);
+                } else if (profile === 'bubble') {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(200, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(800, audioCtx.currentTime + 0.04);
+                    gain.gain.setValueAtTime(1.0, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.04);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.04);
                 } else {
                     const osc = audioCtx.createOscillator();
                     const gain = audioCtx.createGain();
                     osc.connect(gain);
                     gain.connect(audioCtx.destination);
-
-                    if (profile === 'woodblock') {
-                        osc.type = 'sine';
-                        osc.frequency.setValueAtTime(320, audioCtx.currentTime);
-                        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-                        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.02);
-                        osc.start(); osc.stop(audioCtx.currentTime + 0.02);
-                    } else if (profile === 'bubble') {
-                        osc.type = 'sine';
-                        osc.frequency.setValueAtTime(600, audioCtx.currentTime);
-                        osc.frequency.exponentialRampToValueAtTime(950, audioCtx.currentTime + 0.04);
-                        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-                        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.04);
-                        osc.start(); osc.stop(audioCtx.currentTime + 0.04);
-                    } else if (profile === 'magnetic') {
-                        osc.type = 'sawtooth';
-                        osc.frequency.setValueAtTime(1100 + Math.random() * 200, audioCtx.currentTime);
-                        gain.gain.setValueAtTime(0.06, audioCtx.currentTime);
-                        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.018);
-                        osc.start(); osc.stop(audioCtx.currentTime + 0.018);
-                    } else if (profile === 'typewriter') {
-                        osc.type = 'sawtooth';
-                        osc.frequency.setValueAtTime(450 + Math.random() * 100, audioCtx.currentTime);
-                        gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
-                        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.05);
-                        osc.start(); osc.stop(audioCtx.currentTime + 0.05);
-                    }
+                    osc.type = ['sine', 'square', 'sawtooth', 'triangle'].includes(profile) ? profile : 'sine';
+                    osc.frequency.setValueAtTime(440 + Math.random() * 100, audioCtx.currentTime);
+                    gain.gain.setValueAtTime(0.9, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.04);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.04);
                 }
             } catch (e) {}
         }
 
         darkModeToggle.addEventListener('click', () => {
             const isDark = bodyRoot.classList.toggle('dark');
+            const themeBoxes = document.querySelectorAll('.theme-box');
+            
             if (isDark) {
                 darkModeToggle.innerText = '☀️';
                 bodyRoot.style.backgroundColor = '#121212';
                 mainContainer.style.backgroundColor = '#1e1e1e';
+                logoBox.style.backgroundColor = '#27272a';
+                themeBoxColors(themeBoxes, '#27272a');
             } else {
                 darkModeToggle.innerText = '🌙';
                 bodyRoot.style.backgroundColor = '#FFE6EA';
                 mainContainer.style.backgroundColor = '#FF8A9D';
+                logoBox.style.backgroundColor = '#FFC0CB';
+                themeBoxColors(themeBoxes, '#FFC0CB');
             }
         });
+
+        function themeBoxColors(boxes, color) {
+            boxes.forEach(box => {
+                box.style.backgroundColor = color;
+            });
+        }
 
         soundToggle.addEventListener('click', () => {
             soundEnabled = !soundEnabled;
@@ -494,6 +703,10 @@
             const val = testModeSelect.value;
             if (val === '1min') sprintDurationSeconds = 60;
             else if (val === '3min') sprintDurationSeconds = 180;
+			else if (val === '5min') sprintDurationSeconds = 300;
+			else if (val === '10min') sprintDurationSeconds = 600;
+			else if (val === '15min') sprintDurationSeconds = 900;
+			else if (val === '20min') sprintDurationSeconds = 1200;
             else sprintDurationSeconds = 0;
             resetTestState();
         });
@@ -504,47 +717,199 @@
             formattedWordCount.innerText = count;
         }
 
-        function processAndDisplay(rawText) {
-            const cleanedText = formatPassage(rawText);
-            formattedOutput.value = cleanedText;
-            updateFormattedWordCount(cleanedText);
-            userInput.disabled = false;
-            userInput.focus();
-            loader.classList.add('hidden');
+        
+function renderLivePassage(referenceText, userInputText = "") {
+
+    if (!referenceText) {
+        livePassageContainer.innerText =
+            "Formatted passage will appear here...";
+        return;
+    }
+
+    let targetIdx = 0;
+    let charStates = Array(referenceText.length).fill('PENDING');
+    let i = 0;
+
+    while (i < userInputText.length && targetIdx < referenceText.length) {
+
+        let typedChar = userInputText[i];
+        let targetChar = referenceText[targetIdx];
+
+        if (typedChar === targetChar) {
+
+            charStates[targetIdx] = 'CORRECT';
+            targetIdx++;
+            i++;
+
+        } else {
+
+            let foundMatch = -1;
+
+            for (let look = 1; look <= 5; look++) {
+                if (
+                    targetIdx + look < referenceText.length &&
+                    typedChar === referenceText[targetIdx + look]
+                ) {
+                    foundMatch = targetIdx + look;
+                    break;
+                }
+            }
+
+            if (foundMatch !== -1) {
+
+                while (targetIdx < foundMatch) {
+                    charStates[targetIdx] = 'MISSED';
+                    targetIdx++;
+                }
+
+                charStates[targetIdx] = 'CORRECT';
+                targetIdx++;
+                i++;
+
+            } else {
+
+                charStates[targetIdx] = 'INCORRECT';
+                targetIdx++;
+                i++;
+            }
         }
+    }
+
+    // Build display
+    let html = '';
+
+    for (let idx = 0; idx < referenceText.length; idx++) {
+
+        let ch = referenceText[idx];
+
+        if (ch === ' ') ch = '&nbsp;';
+
+        let cursorClass =
+            (idx === targetIdx && !userInput.disabled)
+                ? 'live-cursor'
+                : '';
+
+        if (liveHighlightEnabled) {
+
+            let stateClass = 'live-pending';
+
+            if (charStates[idx] === 'CORRECT')
+                stateClass = 'live-correct';
+
+            else if (charStates[idx] === 'INCORRECT')
+                stateClass = 'live-incorrect';
+
+            else if (charStates[idx] === 'MISSED')
+                stateClass = 'live-missed';
+
+            html += `<span class="${stateClass} ${cursorClass}">${ch}</span>`;
+
+        } else {
+
+            // Highlight OFF: plain text, but cursor remains active
+            html += `<span class="${cursorClass}">${ch}</span>`;
+        }
+    }
+
+    // Extra typed characters
+    if (i < userInputText.length) {
+
+        let extraText = userInputText.substring(i);
+
+        if (liveHighlightEnabled) {
+
+            html += `<span class="bg-red-300 text-red-900 px-1 rounded underline">${extraText}</span>`;
+
+        } else {
+
+            html += `<span>${extraText}</span>`;
+        }
+    }
+
+    livePassageContainer.innerHTML = html;
+
+    // Auto-scroll works in BOTH Highlight ON and OFF modes
+    requestAnimationFrame(() => {
+        autoScrollTypingDisplay();
+    });
+}
+
+
+// Keep this function OUTSIDE renderLivePassage()
+function autoScrollTypingDisplay() {
+
+    const container = livePassageContainer;
+
+    const cursor = container.querySelector('.live-cursor');
+
+    if (!cursor) return;
+
+    const containerRect = container.getBoundingClientRect();
+    const cursorRect = cursor.getBoundingClientRect();
+
+    const topMargin = 15;
+    const bottomMargin = 100;
+
+    if (cursorRect.bottom > containerRect.bottom - bottomMargin) {
+
+        container.scrollTop +=
+            cursorRect.bottom -
+            containerRect.bottom +
+            bottomMargin;
+
+    } else if (cursorRect.top < containerRect.top + topMargin) {
+
+        container.scrollTop -=
+            containerRect.top +
+            topMargin -
+            cursorRect.top;
+    }
+}
+
+
+		function processAndDisplay(rawText) {
+
+			// Step 1: Format the original text
+			const cleanedText = formatPassage(rawText);
+
+			// Step 2: CALL the upgraded display function
+			updateDisplay(cleanedText);
+
+			// Step 3: Update the word count
+			updateFormattedWordCount(cleanedText);
+
+			// Step 4: Render the live typing passage
+			renderLivePassage(cleanedText, "");
+
+			// Step 5: Enable typing
+			userInput.disabled = false;
+			userInput.focus();
+
+			// Step 6: Hide the loader
+			loader.classList.add('hidden');
+		}
 
         formatBtn.addEventListener('click', async () => {
             const file = fileUpload.files[0];
             if (!file) { alert("Please select a PDF or image file first."); return; }
             loader.classList.remove('hidden');
 
+            let worker = null;
             try {
-                const worker = await Tesseract.createWorker('eng', 1, {
-                    logger: m => console.log(m)
-                });
-
                 if (file.type.startsWith('image/')) {
+                    worker = await Tesseract.createWorker('eng');
                     const img = document.createElement('img');
                     const canvas = document.createElement('canvas');
                     const context = canvas.getContext('2d');
                     img.src = URL.createObjectURL(file);
                     await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject; });
                     
-                    const zoomFactor = 3.0;
-                    canvas.width = img.width * zoomFactor;
-                    canvas.height = img.height * zoomFactor;
-                    context.imageSmoothingEnabled = true;
-                    context.imageSmoothingQuality = 'high';
+                    canvas.width = img.width * 2;
+                    canvas.height = img.height * 2;
                     context.drawImage(img, 0, 0, canvas.width, canvas.height);
 
                     const result = await worker.recognize(canvas);
                     await worker.terminate();
-
-                    if (!result.data.text.trim()) {
-                        loader.classList.add('hidden');
-                        alert("No text could be detected in this image.");
-                        return;
-                    }
                     processAndDisplay(result.data.text);
                     return;
                 }
@@ -553,23 +918,32 @@
                 reader.onload = async function() {
                     try {
                         const typedarray = new Uint8Array(this.result);
-                        const pdf = await pdfjsLib.getDocument(typedarray).promise;
+                        const loadingTask = pdfjsLib.getDocument({ data: typedarray });
+                        const pdf = await loadingTask.promise;
                         let ocrText = "";
 
                         for (let i = 1; i <= pdf.numPages; i++) {
                             const page = await pdf.getPage(i);
-                            const viewport = page.getViewport({ scale: 3.0 });
-                            const canvas = document.createElement('canvas');
-                            const context = canvas.getContext('2d');
-                            canvas.height = viewport.height;
-                            canvas.width = viewport.width;
-
-                            await page.render({ canvasContext: context, viewport: viewport }).promise;
-                            const result = await worker.recognize(canvas);
-                            ocrText += result.data.text + "\n";
+                            const textContent = await page.getTextContent();
+                            const pageText = textContent.items.map(item => item.str).join(" ");
+                            ocrText += pageText + "\n";
                         }
-                        
-                        await worker.terminate();
+
+                        if (!ocrText.trim()) {
+                            worker = await Tesseract.createWorker('eng');
+                            for (let i = 1; i <= pdf.numPages; i++) {
+                                const page = await pdf.getPage(i);
+                                const viewport = page.getViewport({ scale: 2.0 });
+                                const canvas = document.createElement('canvas');
+                                const context = canvas.getContext('2d');
+                                canvas.height = viewport.height;
+                                canvas.width = viewport.width;
+                                await page.render({ canvasContext: context, viewport: viewport }).promise;
+                                const result = await worker.recognize(canvas);
+                                ocrText += result.data.text + "\n";
+                            }
+                            await worker.terminate();
+                        }
 
                         if (!ocrText.trim()) {
                             loader.classList.add('hidden');
@@ -579,18 +953,23 @@
                         processAndDisplay(ocrText);
 
                     } catch (pdfErr) {
-                        console.error(pdfErr);
-                        await worker.terminate();
+                        console.error("PDF Parsing Error:", pdfErr);
+                        if (worker) await worker.terminate().catch(() => {});
                         loader.classList.add('hidden');
                         alert("Error parsing PDF structure. Please use the direct text paste option below.");
                     }
                 };
+                reader.onerror = function() {
+                    loader.classList.add('hidden');
+                    alert("Failed to read the uploaded file.");
+                };
                 reader.readAsArrayBuffer(file);
 
             } catch (err) {
-                console.error(err);
+                console.error("General Format Error:", err);
+                if (worker) await worker.terminate().catch(() => {});
                 loader.classList.add('hidden');
-                alert("An error occurred while initializing OCR. Check your internet connection or use the manual text box below.");
+                alert("An error occurred while formatting the file. Please try pasting the text directly.");
             }
         });
 
@@ -611,10 +990,10 @@
                 .replace(/\s+([.,?!])/g, '$1').replace(/\s+/g, ' ').trim();
         }
 
-        userInput.addEventListener('keydown', (e) => {
+        userInput.addEventListener('input', (e) => {
             playSound('key');
 
-            if (!isTimerStarted) {
+            if (!isTimerStarted && userInput.value.length > 0) {
                 startTime = new Date();
                 isTimerStarted = true;
 
@@ -640,6 +1019,8 @@
                     }
                 }, 1000);
             }
+
+            renderLivePassage(formattedOutput.value, userInput.value);
         });
 
         calcBtn.addEventListener('click', () => {
@@ -726,6 +1107,15 @@
 
             const wpm = timeDiffInMinutes > 0 ? Math.round(wordsTypedCount / timeDiffInMinutes) : 0;
 
+            const history = JSON.parse(localStorage.getItem('typingHistory') || '[]');
+            const maxWpm = history.length > 0 ? Math.max(...history.map(h => h.wpm)) : 0;
+            if (wpm > maxWpm && history.length > 0) {
+                pbBadge.classList.remove('hidden');
+                confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+            } else {
+                pbBadge.classList.add('hidden');
+            }
+
             document.getElementById('wordCount').innerText = wordsTypedCount;
             document.getElementById('totalTargetWords').innerText = totalTargetCount;
             document.getElementById('timeTaken').innerText = formattedTime;
@@ -761,22 +1151,28 @@
             if (history.length > 20) history = history.slice(0, 20);
             localStorage.setItem('typingHistory', JSON.stringify(history));
             renderHistory();
+            updateChart();
+
+            let csvContent = "Date/Time,Mode,Duration,WPM,Accuracy,Errors\r\n";
+            history.forEach(row => {
+                csvContent += `"${row.date}","${row.mode}","${row.duration}","${row.wpm}","${row.accuracy}","${row.errors}"\r\n`;
+            });
 
             if (fileHandle) {
                 try {
-                    let csvContent = "Date/Time,Mode,Duration,WPM,Accuracy,Errors\r\n";
-                    history.forEach(row => {
-                        csvContent += `"${row.date}","${row.mode}","${row.duration}","${row.wpm}","${row.accuracy}","${row.errors}"\r\n`;
-                    });
-                    const writableStream = await fileHandle.createWritable();
-                    await writableStream.write(csvContent);
-                    await writableStream.close();
+                    if (await verifyPermission(fileHandle, true)) {
+                        const writableStream = await fileHandle.createWritable();
+                        await writableStream.write(csvContent);
+                        await writableStream.close();
+                        return;
+                    }
                 } catch (err) {
-                    console.error("Failed to write to local file handle:", err);
+                    console.error("Failed to write to linked file handle:", err);
                     fileHandle = null;
-                    linkExcelBtn.innerText = "🔗";
-                    linkExcelBtn.classList.remove('bg-green-600', 'cursor-default');
+                    linkExcelBtn.innerText = "🔗 Link CSV";
+                    linkExcelBtn.classList.remove('bg-green-600', 'hover:bg-green-700');
                     linkExcelBtn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+                    linkExcelBtn.title = "Link CSV/Excel tracking file";
                 }
             }
         }
@@ -784,30 +1180,73 @@
         function renderHistory() {
             const history = JSON.parse(localStorage.getItem('typingHistory') || '[]');
             if (history.length === 0) {
-                historyTableBody.innerHTML = `<tr><td colspan="6" class="p-3 text-center text-gray-500">No practice attempts recorded yet.</td></tr>`;
+                historyTableBody.innerHTML = `<tr><td colspan="6" class="p-3 text-center text-gray-500 dark:text-gray-400">No practice attempts recorded yet.</td></tr>`;
                 return;
             }
             let html = '';
             history.forEach(item => {
-                html += `<tr class="border-b border-gray-200 text-black">
+                html += `<tr class="border-b border-gray-200 dark:border-zinc-600 text-black dark:text-white">
                     <td class="p-2">${item.date}</td>
                     <td class="p-2">${item.mode}</td>
                     <td class="p-2">${item.duration}</td>
-                    <td class="p-2 font-bold text-green-700">${item.wpm} WPM</td>
+                    <td class="p-2 font-bold text-green-700 dark:text-green-400">${item.wpm} WPM</td>
                     <td class="p-2">${item.accuracy}</td>
-                    <td class="p-2 text-red-600">${item.errors}</td>
+                    <td class="p-2 text-red-600 dark:text-red-400">${item.errors}</td>
                 </tr>`;
             });
             historyTableBody.innerHTML = html;
         }
 
+        function initChart() {
+            const ctx = document.getElementById('trendChart').getContext('2d');
+            const history = JSON.parse(localStorage.getItem('typingHistory') || '[]').reverse();
+            
+            trendChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: history.map(h => h.date),
+                    datasets: [{
+                        label: 'WPM Speed',
+                        data: history.map(h => h.wpm),
+                        borderColor: '#FF002B',
+                        backgroundColor: 'rgba(255, 0, 43, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.3,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { 
+                            beginAtZero: true,
+                            max: 100,
+                            ticks: {
+                                stepSize: 20
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateChart() {
+            if (!trendChartInstance) return;
+            const history = JSON.parse(localStorage.getItem('typingHistory') || '[]').reverse();
+            trendChartInstance.data.labels = history.map(h => h.date);
+            trendChartInstance.data.datasets[0].data = history.map(h => h.wpm);
+            trendChartInstance.update();
+        }
+
         clearHistoryBtn.addEventListener('click', () => {
             localStorage.removeItem('typingHistory');
             renderHistory();
+            updateChart();
         });
 
         function resetTestState() {
-            clearInterval(timerInstrument = null);
+            clearInterval(timerInterval);
             userInput.value = '';
             userInput.disabled = false;
             userInput.focus();
@@ -819,10 +1258,11 @@
             calcBtn.style.cursor = 'pointer';
             results.classList.add('hidden');
             diffContainer.classList.add('hidden');
-        }
+            pbBadge.classList.add('hidden');
+            renderLivePassage(formattedOutput.value, "");
+        };
 
         resetBtn.addEventListener('click', resetTestState);
-        renderHistory();
     </script>
 </body>
 </html>
